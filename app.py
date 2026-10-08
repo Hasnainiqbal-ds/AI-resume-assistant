@@ -10,10 +10,13 @@ Upload a resume (PDF / DOCX / TXT) and get:
 UI: Streamlit   |   AI: Google Gemini Flash (google-genai SDK)
 """
 
+import importlib
 import io
 import json
 import os
 import re
+import subprocess
+import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 import streamlit as st
@@ -48,12 +51,39 @@ CHECKLIST_SHARE = 0.20
 
 
 # --------------------------------------------------------------------------- #
+# 0. Safe imports - fixes "No module named ..." errors
+# --------------------------------------------------------------------------- #
+def import_or_install(module_name: str, pip_name: str):
+    """
+    Import a module. If it is missing, install it into the SAME Python that is running
+    this app (sys.executable), then import it again. This fixes the common problem where
+    packages were installed in a different Python environment than the one running Streamlit.
+    """
+    try:
+        return importlib.import_module(module_name)
+    except ImportError:
+        pass
+    try:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", pip_name],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=240,
+        )
+        importlib.invalidate_caches()
+        return importlib.import_module(module_name)
+    except Exception:
+        raise ValueError(
+            f"The package '{pip_name}' is missing and could not be installed automatically. "
+            "Stop the app and run:  python -m pip install -r requirements.txt  "
+            "then start it again with:  python -m streamlit run app.py"
+        )
+
+
+# --------------------------------------------------------------------------- #
 # 1. Text extraction
 # --------------------------------------------------------------------------- #
 def extract_text_from_pdf(data: bytes) -> str:
-    from pypdf import PdfReader
-
-    reader = PdfReader(io.BytesIO(data))
+    pypdf = import_or_install("pypdf", "pypdf")
+    reader = pypdf.PdfReader(io.BytesIO(data))
     if reader.is_encrypted:
         try:
             reader.decrypt("")
@@ -66,9 +96,8 @@ def extract_text_from_pdf(data: bytes) -> str:
 
 
 def extract_text_from_docx(data: bytes) -> str:
-    from docx import Document
-
-    doc = Document(io.BytesIO(data))
+    docx = import_or_install("docx", "python-docx")
+    doc = docx.Document(io.BytesIO(data))
     parts: List[str] = [p.text for p in doc.paragraphs if p.text.strip()]
     # Many resume templates put content inside tables
     for table in doc.tables:
@@ -303,8 +332,8 @@ def compute_overall_score(category_scores: Dict[str, int], checklist_score: int)
 
 def call_gemini(api_key: str, model: str, prompt: str) -> str:
     """Call Gemini and return raw text. Tries fallback models if the model name is not found."""
-    from google import genai
-    from google.genai import types
+    genai = import_or_install("google.genai", "google-genai")
+    types = import_or_install("google.genai.types", "google-genai")
 
     client = genai.Client(api_key=api_key)
     config = types.GenerateContentConfig(
