@@ -1,4 +1,3 @@
-# AI-resume-assistant
 # 📄 ATS Resume Checker
 
 Upload your resume and get an **estimated ATS score**, a category breakdown, missing keywords,
@@ -53,6 +52,23 @@ name in the sidebar (for example `gemini-2.5-flash`).
 3. Click **Create app**, choose your repo, branch `main`, and main file `app.py`.
 4. Open **Advanced settings → Secrets** and paste: `GEMINI_API_KEY = "your-key-here"`
 5. Click **Deploy**.
+
+## Troubleshooting
+**`No module named 'pypdf'` (or `docx`, `google`)**
+The package is not installed in the Python that runs Streamlit. The app now tries to install
+missing packages automatically, but the reliable fix is to run these in your project folder:
+```bash
+python -m pip install -r requirements.txt
+python -m streamlit run app.py
+```
+Using `python -m pip` and `python -m streamlit` makes sure both use the same Python.
+If you use a virtual environment, activate it first.
+
+- Install **`python-docx`**, not `docx`.
+- **Streamlit Cloud:** `requirements.txt` must be in the repo root next to `app.py`. Then use
+  **Manage app -> Reboot app**.
+- **"Model not found":** change the model name in the sidebar (for example `gemini-2.5-flash`).
+- **"API key rejected":** create a new key at <https://aistudio.google.com/apikey>.
 
 ## Privacy
 Resume text is sent to Google's Gemini API for analysis. Nothing is stored by this app.
